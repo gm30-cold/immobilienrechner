@@ -8,6 +8,8 @@ interface CasesState {
   cases: Case[];
   addCase: (c: Case) => void;
   updateCase: (id: string, patch: Partial<Case>) => void;
+  /** Immer-ähnliches Update via strukturiertes Klonen. Draft darf mutiert werden. */
+  mutateCase: (id: string, fn: (draft: Case) => void) => void;
   removeCase: (id: string) => void;
   getCase: (id: string) => Case | undefined;
   importJSON: (data: Case | Case[]) => number;
@@ -24,6 +26,16 @@ export const useCasesStore = create<CasesState>()(
           cases: s.cases.map((c) =>
             c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c,
           ),
+        })),
+      mutateCase: (id, fn) =>
+        set((s) => ({
+          cases: s.cases.map((c) => {
+            if (c.id !== id) return c;
+            const draft = structuredClone(c);
+            fn(draft);
+            draft.updatedAt = new Date().toISOString();
+            return draft;
+          }),
         })),
       removeCase: (id) =>
         set((s) => ({ cases: s.cases.filter((c) => c.id !== id) })),

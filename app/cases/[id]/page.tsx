@@ -13,14 +13,21 @@ import {
   Receipt,
   LogOut,
   Target,
+  ShoppingCart,
 } from "lucide-react";
 import { DashboardView } from "./views/DashboardView";
 import { StammdatenView } from "./views/StammdatenView";
-import { PlaceholderView } from "./views/PlaceholderView";
+import { KaufkostenView } from "./views/KaufkostenView";
+import { FinanzierungView } from "./views/FinanzierungView";
+import { BewirtschaftungView } from "./views/BewirtschaftungView";
+import { SteuerView } from "./views/SteuerView";
+import { SzenarienView } from "./views/SzenarienView";
+import { ExitView } from "./views/ExitView";
 
 const tabs: TabDef[] = [
   { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="size-4" /> },
   { id: "stammdaten", label: "Stammdaten", icon: <FileText className="size-4" /> },
+  { id: "kaufkosten", label: "Kaufkosten", icon: <ShoppingCart className="size-4" /> },
   { id: "finanzierung", label: "Finanzierung", icon: <Wallet className="size-4" /> },
   { id: "bewirtschaftung", label: "Bewirtschaftung", icon: <Hammer className="size-4" /> },
   { id: "steuer", label: "Steuer", icon: <Receipt className="size-4" /> },
@@ -66,11 +73,12 @@ export default function CasePage() {
       <div className="p-8">
         {active === "dashboard" && <DashboardView caseItem={caseItem} />}
         {active === "stammdaten" && <StammdatenView caseItem={caseItem} />}
-        {active === "finanzierung" && <PlaceholderView title="Finanzierung" hint="Darlehen, Tilgungsplan, Anschlussfinanzierung" />}
-        {active === "bewirtschaftung" && <PlaceholderView title="Bewirtschaftung" hint="Rücklage (Peterssche Formel), Verwaltung, Instandhaltungs-Events" />}
-        {active === "steuer" && <PlaceholderView title="Steuer" hint="Grenzsteuersatz-Wizard, AfA, Werbungskosten, Sonder-/Denkmal-AfA" />}
-        {active === "szenarien" && <PlaceholderView title="Szenarien" hint="Sensitivität, Tornado-Diagramm, (später) Monte Carlo" />}
-        {active === "exit" && <PlaceholderView title="Exit" hint="Haltedauer, Verkaufspreis-Annahme, IRR, Spekulationssteuer-Check" />}
+        {active === "kaufkosten" && <KaufkostenView caseItem={caseItem} />}
+        {active === "finanzierung" && <FinanzierungView caseItem={caseItem} />}
+        {active === "bewirtschaftung" && <BewirtschaftungView caseItem={caseItem} />}
+        {active === "steuer" && <SteuerView caseItem={caseItem} />}
+        {active === "szenarien" && <SzenarienView caseItem={caseItem} />}
+        {active === "exit" && <ExitView caseItem={caseItem} />}
       </div>
     </div>
   );

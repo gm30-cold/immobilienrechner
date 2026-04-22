@@ -1,0 +1,77 @@
+"use client";
+
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useCasesStore } from "@/lib/store";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Tabs, type TabDef } from "@/components/ui/Tabs";
+import {
+  LayoutDashboard,
+  FileText,
+  Wallet,
+  Hammer,
+  Receipt,
+  LogOut,
+  Target,
+} from "lucide-react";
+import { DashboardView } from "./views/DashboardView";
+import { StammdatenView } from "./views/StammdatenView";
+import { PlaceholderView } from "./views/PlaceholderView";
+
+const tabs: TabDef[] = [
+  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="size-4" /> },
+  { id: "stammdaten", label: "Stammdaten", icon: <FileText className="size-4" /> },
+  { id: "finanzierung", label: "Finanzierung", icon: <Wallet className="size-4" /> },
+  { id: "bewirtschaftung", label: "Bewirtschaftung", icon: <Hammer className="size-4" /> },
+  { id: "steuer", label: "Steuer", icon: <Receipt className="size-4" /> },
+  { id: "szenarien", label: "Szenarien", icon: <Target className="size-4" /> },
+  { id: "exit", label: "Exit", icon: <LogOut className="size-4" /> },
+];
+
+export default function CasePage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const caseItem = useCasesStore((s) => s.cases.find((c) => c.id === params.id));
+  const [active, setActive] = useState("dashboard");
+
+  useEffect(() => {
+    if (!caseItem) {
+      const t = setTimeout(() => {
+        // Hydration-tolerant: if still not found, redirect home
+        if (!useCasesStore.getState().cases.find((c) => c.id === params.id)) {
+          router.replace("/");
+        }
+      }, 100);
+      return () => clearTimeout(t);
+    }
+  }, [caseItem, params.id, router]);
+
+  if (!caseItem) {
+    return (
+      <div className="p-8 text-sm text-[var(--fg-muted)]">Lade Case …</div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title={caseItem.name}
+        subtitle={`${caseItem.stammdaten.adresse.ort || "—"} · ${caseItem.stammdaten.adresse.bundesland} · ${caseItem.stammdaten.objekttyp}`}
+      />
+
+      <div className="px-8 pt-6">
+        <Tabs tabs={tabs} activeId={active} onChange={setActive} />
+      </div>
+
+      <div className="p-8">
+        {active === "dashboard" && <DashboardView caseItem={caseItem} />}
+        {active === "stammdaten" && <StammdatenView caseItem={caseItem} />}
+        {active === "finanzierung" && <PlaceholderView title="Finanzierung" hint="Darlehen, Tilgungsplan, Anschlussfinanzierung" />}
+        {active === "bewirtschaftung" && <PlaceholderView title="Bewirtschaftung" hint="Rücklage (Peterssche Formel), Verwaltung, Instandhaltungs-Events" />}
+        {active === "steuer" && <PlaceholderView title="Steuer" hint="Grenzsteuersatz-Wizard, AfA, Werbungskosten, Sonder-/Denkmal-AfA" />}
+        {active === "szenarien" && <PlaceholderView title="Szenarien" hint="Sensitivität, Tornado-Diagramm, (später) Monte Carlo" />}
+        {active === "exit" && <PlaceholderView title="Exit" hint="Haltedauer, Verkaufspreis-Annahme, IRR, Spekulationssteuer-Check" />}
+      </div>
+    </div>
+  );
+}

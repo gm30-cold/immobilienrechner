@@ -12,115 +12,147 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { useMemo, useState } from "react";
-
-// NOTE: Diese View nutzt vorerst vereinfachte Rechnung — in Etappe 2
-// wird sie durch den vollständigen Rechenkern (/lib/calc) ersetzt.
+import { computeCase, monatsBreakdownJahr1 } from "@/lib/calc";
+import { CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 
 export function DashboardView({ caseItem }: { caseItem: Case }) {
-  const kpis = useMemo(() => computeRoughKpis(caseItem), [caseItem]);
-  const cashflow = useMemo(() => buildRoughCashflow(caseItem, 30), [caseItem]);
+  const result = useMemo(() => computeCase(caseItem, 30), [caseItem]);
   const [showTaxReserve, setShowTaxReserve] = useState(true);
+  const [chartJahr, setChartJahr] = useState(1);
 
-  const monthly = useMemo(() => buildMonthlyBreakdown(caseItem, showTaxReserve), [caseItem, showTaxReserve]);
+  const monthly = useMemo(() => {
+    const r = computeCase(caseItem, 30);
+    const idx = Math.max(0, Math.min(chartJahr - 1, r.cashflow.length - 1));
+    const zeile = r.cashflow[idx];
+    return [
+      {
+        kategorie: `Jahr ${chartJahr}`,
+        miete: Math.round(zeile.einnahmenKaltmiete / 12),
+        zins: Math.round(zeile.zins / 12),
+        tilgung: Math.round(zeile.tilgung / 12),
+        bewirtschaftung: Math.round(zeile.bewirtschaftung / 12),
+        steuer: showTaxReserve
+          ? Math.round(Math.max(0, zeile.steuerEffekt) / 12)
+          : 0,
+      },
+    ];
+  }, [caseItem, chartJahr, showTaxReserve]);
+
+  const kpi = result.kpi;
+  const breakEvenJahr = kpi.breakEvenJahr;
 
   return (
     <div className="space-y-6">
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <KpiTile
-          label="Bruttomietrendite"
-          value={formatPercent(kpis.brutto)}
-          tone={kpis.brutto > 4 ? "positive" : kpis.brutto > 3 ? "warning" : "negative"}
-          tooltip="Jahreskaltmiete / Kaufpreis. Grobe Orientierung, ohne Nebenkosten & Bewirtschaftung."
+          label="Bruttorendite"
+          value={formatPercent(kpi.bruttomietrenditeProzent)}
+          tone={kpi.bruttomietrenditeProzent > 4 ? "positive" : kpi.bruttomietrenditeProzent > 3 ? "warning" : "negative"}
+          tooltip="Jahreskaltmiete / Kaufpreis. Ohne Nebenkosten und Bewirtschaftung — nur zur groben Orientierung."
         />
         <KpiTile
-          label="Nettomietrendite"
-          value={formatPercent(kpis.netto)}
-          tone={kpis.netto > 3 ? "positive" : kpis.netto > 2 ? "warning" : "negative"}
-          tooltip="(Jahreskaltmiete − Bewirtschaftung) / Gesamtinvestition inkl. Nebenkosten."
+          label="Nettorendite"
+          value={formatPercent(kpi.nettomietrenditeProzent)}
+          tone={kpi.nettomietrenditeProzent > 3 ? "positive" : kpi.nettomietrenditeProzent > 2 ? "warning" : "negative"}
+          tooltip="(Jahreskaltmiete − Bewirtschaftungskosten) / Gesamtinvestition inkl. aller Kaufnebenkosten. Realistische Objektrendite."
         />
         <KpiTile
-          label="EK-Rendite n. Steuern"
-          value={formatPercent(kpis.ekRendite)}
-          tone={kpis.ekRendite > 5 ? "positive" : kpis.ekRendite > 2 ? "warning" : "negative"}
-          tooltip="Die ehrlichste Zahl: (Cashflow n. Steuern + Tilgung) / Eigenkapital."
+          label="EK-Rendite n. St."
+          value={formatPercent(kpi.eigenkapitalrenditeNachSteuernProzent)}
+          tone={kpi.eigenkapitalrenditeNachSteuernProzent > 5 ? "positive" : kpi.eigenkapitalrenditeNachSteuernProzent > 2 ? "warning" : "negative"}
+          tooltip="Die ehrlichste Kennzahl: (Cashflow n. Steuern + jährliche Tilgung) / Eigenkapital. Zeigt, was dein eingesetztes Kapital wirklich bringt — inkl. Steuervorteil und Vermögensaufbau durch Tilgung."
         />
         <KpiTile
-          label="Cashflow n. Steuern"
-          value={formatCurrency(kpis.cashflow)}
+          label="Cashflow n. St."
+          value={formatCurrency(kpi.cashflowNachSteuernProMonat)}
           unit="/Mo."
-          tone={kpis.cashflow >= 0 ? "positive" : "negative"}
-          tooltip="Was monatlich real auf dem Konto bleibt, inkl. Steuerwirkung (jährlich anteilig)."
+          tone={kpi.cashflowNachSteuernProMonat >= 0 ? "positive" : kpi.cashflowNachSteuernProMonat > -200 ? "warning" : "negative"}
+          tooltip="Was monatlich real auf dem Konto bleibt (Jahr 1). Steuerwirkung anteilig eingerechnet — wird faktisch einmal jährlich mit der Steuererklärung verrechnet."
         />
         <KpiTile
           label="Break-Even"
-          value={kpis.breakEven ? `Jahr ${kpis.breakEven}` : "> 30 J."}
-          tone={kpis.breakEven && kpis.breakEven < 15 ? "positive" : "warning"}
-          tooltip="Ab welchem Jahr kumulativer Cashflow positiv ist."
+          value={breakEvenJahr ? `Jahr ${breakEvenJahr}` : "> 30 J."}
+          tone={breakEvenJahr && breakEvenJahr <= 15 ? "positive" : breakEvenJahr && breakEvenJahr <= 25 ? "warning" : "negative"}
+          tooltip="Jahr, ab dem der kumulierte Cashflow nach Steuern positiv ist. Ohne Exit-Erlös betrachtet."
         />
         <KpiTile
-          label="Restschuld n. Zinsbindung"
-          value={formatCurrency(kpis.restschuld)}
+          label="Restschuld n. ZB"
+          value={formatCurrency(kpi.restschuldNachZinsbindung)}
           tone="neutral"
-          tooltip="Verbleibende Darlehenssumme am Ende der Sollzinsbindung."
+          tooltip="Verbleibende Darlehenssumme am Ende der Sollzinsbindung. Darauf muss Anschlussfinanzierung gefunden werden — Zinsrisiko beachten."
         />
       </div>
 
       {/* Ampel */}
-      <GlassCard className="flex flex-wrap items-center gap-4 p-5">
-        <div>
+      <GlassCard className="p-5">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)]">
             Gesamt-Bewertung
           </div>
-          <div className="mt-1 flex items-center gap-3">
-            <Ampel state={kpis.ampel} />
-            <span className="text-sm text-[var(--fg-secondary)]">
-              Basiert auf Nettorendite, Cashflow und Tilgungsquote.
-            </span>
-          </div>
+          <Ampel state={result.ampel.gesamt} />
         </div>
+        <ul className="mt-4 space-y-1.5 text-xs">
+          {result.ampel.gruende.map((g, i) => {
+            const Icon = g.ampel === "gruen" ? CheckCircle2 : g.ampel === "gelb" ? AlertTriangle : XCircle;
+            const color =
+              g.ampel === "gruen"
+                ? "text-[var(--accent-emerald)]"
+                : g.ampel === "gelb"
+                ? "text-[var(--accent-amber)]"
+                : "text-[var(--accent-rose)]";
+            return (
+              <li key={i} className="flex items-start gap-2 text-[var(--fg-secondary)]">
+                <Icon className={`mt-0.5 size-3.5 shrink-0 ${color}`} />
+                <span>{g.text}</span>
+              </li>
+            );
+          })}
+        </ul>
       </GlassCard>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ChartCard
           title="Trägt sich das selbst?"
-          subtitle="Monatliche Miete vs. Ausgaben (Jahr 1)"
+          subtitle="Monatliche Miete vs. Ausgaben"
           right={
-            <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-secondary)]">
-              <input
-                type="checkbox"
-                checked={showTaxReserve}
-                onChange={(e) => setShowTaxReserve(e.target.checked)}
-                className="size-3.5 accent-emerald-500"
-              />
-              Steuerrücklage (1/12)
-            </label>
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--fg-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={showTaxReserve}
+                  onChange={(e) => setShowTaxReserve(e.target.checked)}
+                  className="size-3.5 accent-emerald-500"
+                />
+                Steuerrücklage
+              </label>
+              <select
+                value={chartJahr}
+                onChange={(e) => setChartJahr(Number(e.target.value))}
+                className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-xs"
+              >
+                {result.cashflow.map((z) => (
+                  <option key={z.jahr} value={z.jahr}>
+                    Jahr {z.jahr}
+                  </option>
+                ))}
+              </select>
+            </div>
           }
         >
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={monthly} barCategoryGap="30%">
               <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis
-                dataKey="kategorie"
-                stroke="var(--fg-muted)"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="var(--fg-muted)"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `${v}€`}
-              />
+              <XAxis dataKey="kategorie" stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${v}€`} />
               <Tooltip
                 cursor={{ fill: "rgba(255,255,255,0.03)" }}
                 contentStyle={{
@@ -144,11 +176,17 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
         </ChartCard>
 
         <ChartCard
-          title="Cashflow über 30 Jahre"
-          subtitle="Vor und nach Steuern (kumuliert)"
+          title="Kumulierter Cashflow"
+          subtitle="Vor und nach Steuern über Haltedauer"
         >
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={cashflow}>
+            <AreaChart data={result.cashflow.map((z) => ({
+              jahr: z.jahr,
+              kumNach: Math.round(z.kumulierterCashflowNachSteuer),
+              kumVor: Math.round(
+                result.cashflow.slice(0, z.jahr).reduce((a, r) => a + r.cashflowVorSteuer, 0),
+              ),
+            }))}>
               <defs>
                 <linearGradient id="cfNach" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--accent-emerald)" stopOpacity={0.4} />
@@ -160,20 +198,17 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
                 </linearGradient>
               </defs>
               <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis
-                dataKey="jahr"
-                stroke="var(--fg-muted)"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="var(--fg-muted)"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `${Math.round(v / 1000)}k`}
-              />
+              <XAxis dataKey="jahr" stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeDasharray="2 2" />
+              {breakEvenJahr && (
+                <ReferenceLine
+                  x={breakEvenJahr}
+                  stroke="var(--accent-emerald)"
+                  strokeDasharray="3 3"
+                  label={{ value: "Break-Even", fill: "var(--accent-emerald)", fontSize: 10, position: "top" }}
+                />
+              )}
               <Tooltip
                 contentStyle={{
                   background: "var(--bg-glass-strong)",
@@ -183,167 +218,77 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
                 }}
                 formatter={(v) => formatCurrency(Number(v))}
               />
-              <Area
-                type="monotone"
-                dataKey="vorSteuer"
-                stroke="var(--accent-violet)"
-                strokeWidth={2}
-                fill="url(#cfVor)"
-                name="vor Steuer"
-              />
-              <Area
-                type="monotone"
-                dataKey="nachSteuer"
-                stroke="var(--accent-emerald)"
-                strokeWidth={2}
-                fill="url(#cfNach)"
-                name="nach Steuer"
-              />
+              <Area type="monotone" dataKey="kumVor" stroke="var(--accent-violet)" strokeWidth={2} fill="url(#cfVor)" name="vor Steuer" />
+              <Area type="monotone" dataKey="kumNach" stroke="var(--accent-emerald)" strokeWidth={2} fill="url(#cfNach)" name="nach Steuer" />
               <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "var(--fg-secondary)" }} />
             </AreaChart>
           </ResponsiveContainer>
         </ChartCard>
-      </div>
 
-      <GlassCard className="flex items-start gap-3 p-5 text-xs text-[var(--fg-muted)]">
-        <span className="mt-0.5 rounded-md bg-amber-400/10 px-1.5 py-0.5 font-mono text-[10px] text-[var(--accent-amber)]">
-          Etappe 1
-        </span>
-        Zahlen hier sind aus einer vereinfachten Berechnung. Der vollständige Rechenkern
-        (monatsgenauer Tilgungsplan, Peterssche Formel, §82b-Verteilung, §32a-Tarif,
-        Sensitivität, Exit-IRR) folgt in Etappe 2.
-      </GlassCard>
+        <ChartCard
+          title="Vermögensaufbau"
+          subtitle="Tilgung + Wertsteigerung + kumulierter Cashflow"
+          className="xl:col-span-2"
+        >
+          <VermoegensaufbauChart result={result} caseItem={caseItem} />
+        </ChartCard>
+      </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Vereinfachte Rough-Calc nur fürs UI-Gerüst. In Etappe 2 ersetzen durch /lib/calc.
-// ---------------------------------------------------------------------------
+function VermoegensaufbauChart({ result, caseItem }: { result: ReturnType<typeof computeCase>; caseItem: Case }) {
+  const wertsteigerungPA = caseItem.exit.wertsteigerungProzentPA ?? 0;
+  const startwert = caseItem.kaufkosten.kaufpreis;
+  const darlehenStart = caseItem.finanzierung.darlehen.reduce((s, d) => s + d.betrag, 0);
 
-function computeRoughKpis(c: Case) {
-  const jahresKaltmiete = c.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0) * 12;
-  const bewirtschaftungPA =
-    c.bewirtschaftung.versicherungProJahr +
-    c.bewirtschaftung.sonstigeKostenProJahr +
-    c.bewirtschaftung.hausverwaltungProMonatJeEinheit * 12 * c.stammdaten.einheiten.length +
-    jahresKaltmiete * (c.bewirtschaftung.mietausfallwagnisProzent / 100) +
-    c.kaufkosten.kaufpreis * (c.kaufkosten.aufteilung.gebaeudeProzent / 100) * 0.01;
-
-  const nebenkostenProzent =
-    c.kaufkosten.nebenkosten.grunderwerbsteuerProzent +
-    c.kaufkosten.nebenkosten.notarProzent +
-    c.kaufkosten.nebenkosten.grundbuchProzent +
-    c.kaufkosten.nebenkosten.maklerProzent;
-  const nebenkosten = c.kaufkosten.kaufpreis * (nebenkostenProzent / 100);
-  const gesamtinvestition = c.kaufkosten.kaufpreis + nebenkosten;
-
-  const darlehen = c.finanzierung.darlehen[0];
-  const jahresZins = darlehen ? darlehen.betrag * (darlehen.sollzinsProzent / 100) : 0;
-  const jahresTilgung = darlehen ? darlehen.betrag * (darlehen.tilgungAnfaenglichProzent / 100) : 0;
-  const annuitaet = jahresZins + jahresTilgung;
-
-  const brutto = c.kaufkosten.kaufpreis > 0 ? (jahresKaltmiete / c.kaufkosten.kaufpreis) * 100 : 0;
-  const netto = gesamtinvestition > 0 ? ((jahresKaltmiete - bewirtschaftungPA) / gesamtinvestition) * 100 : 0;
-
-  const afa = c.kaufkosten.kaufpreis * (c.kaufkosten.aufteilung.gebaeudeProzent / 100) * 0.02;
-  const steuerpflichtigesEinkommen = jahresKaltmiete - bewirtschaftungPA - jahresZins - afa;
-  const grenzsteuer =
-    (c.steuer.grenzsteuersatzDirektProzent ?? 42) / 100;
-  const steuerPA = steuerpflichtigesEinkommen * grenzsteuer;
-
-  const cashflowPA = jahresKaltmiete - bewirtschaftungPA - annuitaet - steuerPA;
-  const cashflow = cashflowPA / 12;
-
-  const ekRendite =
-    c.finanzierung.eigenkapital > 0
-      ? ((cashflowPA + jahresTilgung) / c.finanzierung.eigenkapital) * 100
-      : 0;
-
-  // Rough Break-Even
-  let kum = 0;
-  let breakEven: number | null = null;
-  for (let j = 1; j <= 30; j++) {
-    kum += cashflowPA;
-    if (kum >= 0 && !breakEven) breakEven = j;
-  }
-
-  const restschuld = darlehen
-    ? Math.max(
-        0,
-        darlehen.betrag -
-          jahresTilgung * darlehen.sollzinsbindungJahre *
-            (1 + darlehen.sollzinsProzent / 100 / 2),
-      )
-    : 0;
-
-  const ampel: "gruen" | "gelb" | "rot" =
-    netto > 3 && cashflow >= 0 ? "gruen" : cashflow >= -200 ? "gelb" : "rot";
-
-  return { brutto, netto, ekRendite, cashflow, breakEven, restschuld, ampel };
-}
-
-function buildMonthlyBreakdown(c: Case, includeTax: boolean) {
-  const kaltmiete = c.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0);
-  const darlehen = c.finanzierung.darlehen[0];
-  const zins = darlehen ? (darlehen.betrag * (darlehen.sollzinsProzent / 100)) / 12 : 0;
-  const tilgung = darlehen ? (darlehen.betrag * (darlehen.tilgungAnfaenglichProzent / 100)) / 12 : 0;
-  const bewirtschaftung =
-    (c.bewirtschaftung.versicherungProJahr + c.bewirtschaftung.sonstigeKostenProJahr) / 12 +
-    c.bewirtschaftung.hausverwaltungProMonatJeEinheit * c.stammdaten.einheiten.length +
-    kaltmiete * (c.bewirtschaftung.mietausfallwagnisProzent / 100) +
-    ((c.kaufkosten.kaufpreis * (c.kaufkosten.aufteilung.gebaeudeProzent / 100)) * 0.01) / 12;
-
-  const jahresKaltmiete = kaltmiete * 12;
-  const afa = c.kaufkosten.kaufpreis * (c.kaufkosten.aufteilung.gebaeudeProzent / 100) * 0.02;
-  const steuerpflichtiges =
-    jahresKaltmiete - bewirtschaftung * 12 - zins * 12 - afa;
-  const grenzsteuer = (c.steuer.grenzsteuersatzDirektProzent ?? 42) / 100;
-  const steuerJahr = Math.max(0, steuerpflichtiges * grenzsteuer);
-  const steuerMonat = includeTax ? steuerJahr / 12 : 0;
-
-  return [
-    {
-      kategorie: "Monat 1",
-      miete: Math.round(kaltmiete),
-      zins: Math.round(zins),
-      tilgung: Math.round(tilgung),
-      bewirtschaftung: Math.round(bewirtschaftung),
-      steuer: Math.round(steuerMonat),
-    },
-  ];
-}
-
-function buildRoughCashflow(c: Case, years: number) {
-  const kpis = computeRoughKpis(c);
-  const jahresCF = kpis.cashflow * 12;
-  const jahresCFvor = jahresCF + ((c.steuer.grenzsteuersatzDirektProzent ?? 42) / 100) *
-    (c.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0) * 12 * 0.3); // sehr grob
-
-  let kumNach = 0;
-  let kumVor = 0;
-  return Array.from({ length: years + 1 }, (_, i) => {
-    if (i > 0) {
-      kumNach += jahresCF;
-      kumVor += jahresCFvor;
-    }
+  const data = result.cashflow.map((z) => {
+    const objektwert = startwert * Math.pow(1 + wertsteigerungPA / 100, z.jahr);
+    const tilgungGesamt = darlehenStart - z.restschuldEnde;
+    const wertsteigerung = objektwert - startwert;
     return {
-      jahr: i,
-      nachSteuer: Math.round(kumNach),
-      vorSteuer: Math.round(kumVor),
+      jahr: z.jahr,
+      tilgung: Math.round(tilgungGesamt),
+      wertsteigerung: Math.round(wertsteigerung),
+      cashflow: Math.round(z.kumulierterCashflowNachSteuer),
+      gesamt: Math.round(tilgungGesamt + wertsteigerung + z.kumulierterCashflowNachSteuer),
     };
   });
+
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <AreaChart data={data}>
+        <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+        <XAxis dataKey="jahr" stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} />
+        <YAxis stroke="var(--fg-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+        <Tooltip
+          contentStyle={{
+            background: "var(--bg-glass-strong)",
+            border: "1px solid var(--border-default)",
+            borderRadius: 12,
+            backdropFilter: "blur(24px)",
+          }}
+          formatter={(v) => formatCurrency(Number(v))}
+        />
+        <Area type="monotone" dataKey="tilgung" stackId="1" stroke="#a78bfa" fill="#a78bfa" fillOpacity={0.4} name="Tilgung" />
+        <Area type="monotone" dataKey="wertsteigerung" stackId="1" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.35} name="Wertsteigerung" />
+        <Area type="monotone" dataKey="cashflow" stackId="1" stroke="var(--accent-emerald)" fill="var(--accent-emerald)" fillOpacity={0.35} name="kum. Cashflow" />
+        <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "var(--fg-secondary)" }} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
 }
 
 interface ChartCardProps {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }
-function ChartCard({ title, subtitle, right, children }: ChartCardProps) {
+function ChartCard({ title, subtitle, right, className, children }: ChartCardProps) {
   return (
-    <GlassCard className="p-5">
+    <GlassCard className={`p-5 ${className ?? ""}`}>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold">{title}</h3>

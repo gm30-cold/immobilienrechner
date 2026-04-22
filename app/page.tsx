@@ -6,6 +6,9 @@ import { Ampel } from "@/components/ui/Ampel";
 import { useCasesStore } from "@/lib/store";
 import { makeDefaultCase } from "@/lib/defaultCase";
 import { formatCurrency, formatPercent } from "@/lib/cn";
+import { computeCase } from "@/lib/calc";
+import type { Case } from "@/types/case";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Plus, Sparkles } from "lucide-react";
 
@@ -42,15 +45,7 @@ export default function Home() {
         ) : (
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {cases.map((c) => (
-              <CaseCard
-                key={c.id}
-                id={c.id}
-                name={c.name}
-                kaufpreis={c.kaufkosten.kaufpreis}
-                ort={c.stammdaten.adresse.ort || "—"}
-                bundesland={c.stammdaten.adresse.bundesland}
-                monatsmiete={c.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0)}
-              />
+              <CaseCard key={c.id} caseItem={c} />
             ))}
           </div>
         )}
@@ -84,36 +79,22 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-interface CaseCardProps {
-  id: string;
-  name: string;
-  kaufpreis: number;
-  ort: string;
-  bundesland: string;
-  monatsmiete: number;
-}
-
-function CaseCard({ id, name, kaufpreis, ort, bundesland, monatsmiete }: CaseCardProps) {
-  const jahresKaltmiete = monatsmiete * 12;
-  const bruttorendite = kaufpreis > 0 ? (jahresKaltmiete / kaufpreis) * 100 : 0;
-
-  const ampel = bruttorendite > 4 ? "gruen" : bruttorendite > 3 ? "gelb" : "rot";
+function CaseCard({ caseItem }: { caseItem: Case }) {
+  const result = useMemo(() => computeCase(caseItem, 30), [caseItem]);
+  const monatsmiete = caseItem.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0);
 
   return (
-    <a
-      href={`/cases/${id}`}
-      className="group relative block"
-    >
+    <a href={`/cases/${caseItem.id}`} className="group relative block">
       <GlassCard className="relative h-full overflow-hidden p-5 transition-transform group-hover:-translate-y-1">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_60%_at_100%_0%,rgba(167,139,250,0.08),transparent_60%)]" />
         <div className="relative flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-base font-semibold">{name}</h3>
+            <h3 className="truncate text-base font-semibold">{caseItem.name}</h3>
             <p className="mt-0.5 truncate text-xs text-[var(--fg-secondary)]">
-              {ort} · {bundesland}
+              {caseItem.stammdaten.adresse.ort || "—"} · {caseItem.stammdaten.adresse.bundesland}
             </p>
           </div>
-          <Ampel state={ampel} />
+          <Ampel state={result.ampel.gesamt} />
         </div>
         <div className="relative mt-6 grid grid-cols-2 gap-3">
           <div>
@@ -121,20 +102,22 @@ function CaseCard({ id, name, kaufpreis, ort, bundesland, monatsmiete }: CaseCar
               Kaufpreis
             </div>
             <div className="mt-1 font-mono text-base font-semibold">
-              {formatCurrency(kaufpreis)}
+              {formatCurrency(caseItem.kaufkosten.kaufpreis)}
             </div>
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-widest text-[var(--fg-muted)]">
-              Bruttorendite
+              Nettorendite
             </div>
             <div className="mt-1 font-mono text-base font-semibold text-[var(--accent-emerald)]">
-              {formatPercent(bruttorendite)}
+              {formatPercent(result.kpi.nettomietrenditeProzent)}
             </div>
           </div>
         </div>
         <div className="relative mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-xs text-[var(--fg-muted)]">
-          <span>{formatCurrency(monatsmiete)} / Monat</span>
+          <span>
+            CF {formatCurrency(result.kpi.cashflowNachSteuernProMonat)}/Mo.
+          </span>
           <ArrowRight className="size-3.5 text-[var(--fg-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--fg-primary)]" />
         </div>
       </GlassCard>

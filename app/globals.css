@@ -10,8 +10,8 @@
   /* Background layers */
   --bg-base: #07070c;
   --bg-raised: #0f0f16;
-  --bg-glass: rgba(22, 22, 32, 0.55);
-  --bg-glass-strong: rgba(22, 22, 32, 0.75);
+  --bg-glass: rgba(22, 22, 32, 0.38);
+  --bg-glass-strong: rgba(22, 22, 32, 0.6);
 
   /* Borders */
   --border-subtle: rgba(255, 255, 255, 0.06);
@@ -77,21 +77,53 @@ body {
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 60% 40% at 15% 10%, rgba(52, 211, 153, 0.08), transparent 60%),
-    radial-gradient(ellipse 50% 40% at 85% 20%, rgba(167, 139, 250, 0.08), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(56, 189, 248, 0.06), transparent 65%),
-    var(--bg-base);
+  background: var(--bg-base);
 }
 
+/* Gradient orbs — sichtbar, damit Glas was zu blurren hat */
+.bg-mesh::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 45% 35% at 12% 8%, rgba(52, 211, 153, 0.28), transparent 55%),
+    radial-gradient(ellipse 40% 35% at 88% 18%, rgba(167, 139, 250, 0.32), transparent 55%),
+    radial-gradient(ellipse 55% 40% at 70% 85%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(ellipse 35% 30% at 25% 75%, rgba(251, 113, 133, 0.18), transparent 55%),
+    radial-gradient(ellipse 30% 25% at 55% 45%, rgba(251, 191, 36, 0.1), transparent 60%);
+  filter: blur(60px) saturate(120%);
+  animation: mesh-drift 28s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Grain-Overlay für Textur */
 .bg-mesh::after {
   content: "";
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.025) 1px, transparent 0);
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.04) 1px, transparent 0);
   background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 50%, black 50%, transparent 100%);
+  opacity: 0.6;
+}
+
+@keyframes mesh-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-3%, 2%, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(2%, -2%, 0) scale(1.02);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-mesh::before {
+    animation: none;
+  }
 }
 
 /* -------------------------------------------------------------------------- */

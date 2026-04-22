@@ -8,10 +8,13 @@ import {
   NumberInput,
   Section,
   Checkbox,
+  Select,
 } from "@/components/forms/inputs";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { berechneMietprojektion } from "@/lib/calc";
+import { berechneMietprojektion, berechneSensitivitaet, kpiLabel, type SensitivitaetsKpi } from "@/lib/calc";
+import { TornadoChart } from "@/components/ui/TornadoChart";
 import { formatCurrency } from "@/lib/cn";
+import { useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -27,6 +30,9 @@ export function SzenarienView({ caseItem }: { caseItem: Case }) {
   const upd = (fn: (c: Case) => void) => mutate(caseItem.id, fn);
 
   const proj = berechneMietprojektion(caseItem, 30);
+  const [sensiKpi, setSensiKpi] = useState<SensitivitaetsKpi>("ekRendite");
+  const sensi = useMemo(() => berechneSensitivitaet(caseItem, sensiKpi), [caseItem, sensiKpi]);
+  const sensiUnit = sensiKpi === "cashflowMonat" || sensiKpi === "kumulierterCf10J" ? "currency" : "percent";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
@@ -41,6 +47,27 @@ export function SzenarienView({ caseItem }: { caseItem: Case }) {
               onChange={(v) => upd((c) => { c.szenario.leerstandProzent = v; })}
             />
           </Field>
+        </Section>
+
+        <Section
+          title="Sensitivität"
+          description="Welche Annahme trifft deinen Case am stärksten? Je breiter der Balken, desto größer der Impact."
+        >
+          <div className="mb-5">
+            <Field label="Metrik">
+              <Select<SensitivitaetsKpi>
+                value={sensiKpi}
+                onChange={setSensiKpi}
+                options={[
+                  { value: "ekRendite", label: kpiLabel("ekRendite") },
+                  { value: "irr", label: kpiLabel("irr") },
+                  { value: "cashflowMonat", label: kpiLabel("cashflowMonat") },
+                  { value: "kumulierterCf10J", label: kpiLabel("kumulierterCf10J") },
+                ]}
+              />
+            </Field>
+          </div>
+          <TornadoChart data={sensi} unit={sensiUnit} />
         </Section>
 
         <Section

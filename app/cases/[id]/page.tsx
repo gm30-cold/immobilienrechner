@@ -15,7 +15,7 @@ import {
   Target,
   ShoppingCart,
 } from "lucide-react";
-import { DownloadPdfButton } from "@/components/report/DownloadPdfButton";
+import { CaseActionButtons } from "@/components/report/CaseActionButtons";
 import { DashboardView } from "./views/DashboardView";
 import { StammdatenView } from "./views/StammdatenView";
 import { KaufkostenView } from "./views/KaufkostenView";
@@ -65,7 +65,7 @@ export default function CasePage() {
       <PageHeader
         title={caseItem.name}
         subtitle={`${caseItem.stammdaten.adresse.ort || "—"} · ${caseItem.stammdaten.adresse.bundesland} · ${caseItem.stammdaten.objekttyp}`}
-        actions={<DownloadPdfButton caseItem={caseItem} />}
+        actions={<CaseActionButtons caseItem={caseItem} />}
       />
 
       <div className="px-8 pt-6">

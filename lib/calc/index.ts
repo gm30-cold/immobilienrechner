@@ -9,3 +9,5 @@ export * from "./cashflow";
 export * from "./exit";
 export * from "./ampel";
 export * from "./sensitivitaet";
+export * from "./monteCarlo";
+export * from "./random";

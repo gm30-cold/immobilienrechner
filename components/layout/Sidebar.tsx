@@ -52,10 +52,10 @@ export function Sidebar() {
     e.target.value = "";
   };
 
-  const navItems = [
+  const navItems: { href: string; label: string; icon: typeof Home; badge?: string }[] = [
     { href: "/", label: "Übersicht", icon: Home },
-    { href: "/compare", label: "Vergleich", icon: LineChart, badge: "2" },
-    { href: "/benchmark", label: "Markt", icon: Map, badge: "soon" },
+    { href: "/compare", label: "Vergleich", icon: LineChart },
+    { href: "/benchmark", label: "Markt", icon: Map },
   ];
 
   return (

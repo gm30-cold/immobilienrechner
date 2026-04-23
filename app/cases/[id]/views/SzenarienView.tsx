@@ -13,6 +13,7 @@ import {
 import { GlassCard } from "@/components/ui/GlassCard";
 import { berechneMietprojektion, berechneSensitivitaet, kpiLabel, type SensitivitaetsKpi } from "@/lib/calc";
 import { TornadoChart } from "@/components/ui/TornadoChart";
+import { MonteCarloPanel } from "@/components/ui/MonteCarloPanel";
 import { formatCurrency } from "@/lib/cn";
 import { useMemo, useState } from "react";
 import {
@@ -68,6 +69,13 @@ export function SzenarienView({ caseItem }: { caseItem: Case }) {
             </Field>
           </div>
           <TornadoChart data={sensi} unit={sensiUnit} />
+        </Section>
+
+        <Section
+          title="Monte-Carlo-Simulation"
+          description="Mehrere tausend zufällige Szenarien mit realistischen Schwankungen bei Zins, Miete, Leerstand, Wertsteigerung und Instandhaltung — zeigt Wahrscheinlichkeitsverteilung statt Punktschätzung."
+        >
+          <MonteCarloPanel caseItem={caseItem} />
         </Section>
 
         <Section

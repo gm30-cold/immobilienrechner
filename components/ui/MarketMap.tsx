@@ -6,7 +6,6 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { MarktDatensatz } from "@/data/markt";
 import type { Objekttyp } from "@/types/case";
 import { benchmarkBruttorendite } from "@/data/markt";
-import type { BorisWmsLayer } from "@/data/borisWms";
 
 // ---------------------------------------------------------------------------
 // Interaktive Deutschland-Karte mit Markt-Daten als Blasen.
@@ -25,10 +24,6 @@ interface Props {
   casePin?: { lat: number; lng: number; label: string } | null;
   /** Highlight eines Ortes nach Name */
   highlightOrt?: string;
-  /** BORIS-WMS-Overlay (null = aus) */
-  borisLayer?: BorisWmsLayer | null;
-  /** Opacity des WMS-Overlays (0–1) */
-  borisOpacity?: number;
 }
 
 const OSM_STYLE: maplibregl.StyleSpecification = {
@@ -51,7 +46,6 @@ const OSM_STYLE: maplibregl.StyleSpecification = {
       type: "raster",
       source: "osm-tiles",
       paint: {
-        // Etwas abdunkeln/desaturieren für Dark-UI
         "raster-brightness-max": 0.65,
         "raster-saturation": -0.4,
       },
@@ -75,8 +69,7 @@ function fmtValue(v: number, metric: Metric): string {
 }
 
 function colorFor(t: number): string {
-  // 0..1 intensity → violet-emerald gradient via HSL
-  const hue = 260 - t * 120; // 260 (violet) → 140 (emerald)
+  const hue = 260 - t * 120;
   const sat = 70;
   const light = 60 - t * 15;
   return `hsl(${hue} ${sat}% ${light}%)`;
@@ -89,8 +82,6 @@ export function MarketMap({
   focus,
   casePin,
   highlightOrt,
-  borisLayer = null,
-  borisOpacity = 0.55,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -106,7 +97,7 @@ export function MarketMap({
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: OSM_STYLE,
-      center: [10.5, 51.3], // Germany center
+      center: [10.5, 51.3],
       zoom: 5.5,
       minZoom: 4.5,
       maxZoom: 14,
@@ -128,7 +119,6 @@ export function MarketMap({
     if (!ready || !mapRef.current) return;
     const map = mapRef.current;
 
-    // Clear previous
     for (const m of markersRef.current) m.remove();
     markersRef.current = [];
 
@@ -143,26 +133,36 @@ export function MarketMap({
       const color = colorFor(intensity);
       const highlighted = highlightOrt && d.ort.toLowerCase() === highlightOrt.toLowerCase();
 
-      const el = document.createElement("div");
-      el.className = "market-bubble";
-      el.style.cssText = `
+      // Outer wrapper: MapLibre steuert transform → nicht anfassen
+      const outer = document.createElement("div");
+      outer.style.cssText = `
         width: ${radius * 2}px;
         height: ${radius * 2}px;
+        cursor: pointer;
+      `;
+
+      // Inner: hier leben alle visuellen Transforms
+      const inner = document.createElement("div");
+      inner.style.cssText = `
+        width: 100%;
+        height: 100%;
         border-radius: 50%;
         background: ${color};
         opacity: 0.75;
         border: ${highlighted ? "3px solid #34d399" : "1.5px solid rgba(255,255,255,0.3)"};
         box-shadow: 0 0 ${radius}px ${color}40, 0 2px 6px rgba(0,0,0,0.4);
-        cursor: pointer;
         transition: transform 0.15s ease, opacity 0.15s ease;
+        will-change: transform;
       `;
-      el.addEventListener("mouseenter", () => {
-        el.style.transform = "scale(1.2)";
-        el.style.opacity = "1";
+      outer.appendChild(inner);
+
+      outer.addEventListener("mouseenter", () => {
+        inner.style.transform = "scale(1.2)";
+        inner.style.opacity = "1";
       });
-      el.addEventListener("mouseleave", () => {
-        el.style.transform = "scale(1)";
-        el.style.opacity = "0.75";
+      outer.addEventListener("mouseleave", () => {
+        inner.style.transform = "scale(1)";
+        inner.style.opacity = "0.75";
       });
 
       const popup = new Popup({
@@ -178,7 +178,7 @@ export function MarketMap({
         </div>`,
       );
 
-      const marker = new Marker({ element: el, anchor: "center" })
+      const marker = new Marker({ element: outer, anchor: "center" })
         .setLngLat([d.lng, d.lat])
         .setPopup(popup)
         .addTo(map);
@@ -187,7 +187,7 @@ export function MarketMap({
     }
   }, [ready, data, metric, typ, highlightOrt]);
 
-  // Focus (Geocoding result)
+  // Focus pin (Geocoding result)
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
@@ -198,57 +198,29 @@ export function MarketMap({
     }
 
     if (focus) {
-      const el = document.createElement("div");
-      el.style.cssText = `
-        width: 16px;
-        height: 16px;
+      const outer = document.createElement("div");
+      outer.style.cssText = "width: 22px; height: 22px;";
+
+      const inner = document.createElement("div");
+      inner.className = "focus-pulse-inner";
+      inner.style.cssText = `
+        width: 100%;
+        height: 100%;
         border-radius: 50%;
         background: #fbbf24;
         border: 3px solid rgba(251,191,36,0.3);
         box-shadow: 0 0 14px #fbbf24;
-        animation: pulse 1.5s ease-in-out infinite;
+        transform-origin: center;
       `;
-      focusPinRef.current = new Marker({ element: el })
+      outer.appendChild(inner);
+
+      focusPinRef.current = new Marker({ element: outer, anchor: "center" })
         .setLngLat([focus.lng, focus.lat])
         .addTo(map);
 
       map.flyTo({ center: [focus.lng, focus.lat], zoom: 10, duration: 900 });
     }
   }, [focus]);
-
-  // BORIS WMS overlay
-  useEffect(() => {
-    if (!ready || !mapRef.current) return;
-    const map = mapRef.current;
-    const SOURCE_ID = "boris-wms-src";
-    const LAYER_ID = "boris-wms-lyr";
-
-    // Immer erst clean-up
-    if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-    if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
-
-    if (!borisLayer) return;
-
-    const wmsUrl =
-      `${borisLayer.url}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap` +
-      `&FORMAT=image/png&TRANSPARENT=true` +
-      `&LAYERS=${encodeURIComponent(borisLayer.layer)}` +
-      `&CRS=${borisLayer.crs}` +
-      `&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}`;
-
-    map.addSource(SOURCE_ID, {
-      type: "raster",
-      tiles: [wmsUrl],
-      tileSize: 256,
-      attribution: borisLayer.attribution,
-    });
-    map.addLayer({
-      id: LAYER_ID,
-      type: "raster",
-      source: SOURCE_ID,
-      paint: { "raster-opacity": borisOpacity },
-    });
-  }, [ready, borisLayer, borisOpacity]);
 
   // Case pin
   useEffect(() => {
@@ -261,8 +233,11 @@ export function MarketMap({
     }
 
     if (casePin) {
-      const el = document.createElement("div");
-      el.style.cssText = `
+      const outer = document.createElement("div");
+      outer.style.cssText = "width: 22px; height: 28px;";
+
+      const inner = document.createElement("div");
+      inner.style.cssText = `
         width: 22px;
         height: 22px;
         border-radius: 50% 50% 50% 0;
@@ -271,10 +246,13 @@ export function MarketMap({
         transform: rotate(-45deg);
         box-shadow: 0 4px 12px rgba(52,211,153,0.4);
       `;
+      outer.appendChild(inner);
+
       const popup = new Popup({ offset: 20, closeButton: false }).setHTML(
         `<div style="color:#f4f4f6;padding:4px 8px"><div style="font-weight:600;font-size:12px">${casePin.label}</div><div style="font-size:10px;color:#6b6b78">Dein Case</div></div>`,
       );
-      casePinRef.current = new Marker({ element: el, anchor: "bottom" })
+
+      casePinRef.current = new Marker({ element: outer, anchor: "bottom" })
         .setLngLat([casePin.lng, casePin.lat])
         .setPopup(popup)
         .addTo(map);
@@ -284,9 +262,12 @@ export function MarketMap({
   return (
     <div className="relative">
       <style jsx global>{`
-        @keyframes pulse {
+        @keyframes focusPulse {
           0%, 100% { transform: scale(1); opacity: 1; }
           50% { transform: scale(1.4); opacity: 0.7; }
+        }
+        .focus-pulse-inner {
+          animation: focusPulse 1.5s ease-in-out infinite;
         }
         .maplibregl-ctrl-attrib {
           background: rgba(22, 22, 32, 0.7) !important;

@@ -14,12 +14,11 @@ import {
   type MarktDatensatz,
 } from "@/data/markt";
 import { BUNDESLAND_LABEL } from "@/data/bundeslaender";
-import { BORIS_WMS_LAYERS, BUNDESLAND_PORTAL_LINKS, type BorisWmsLayer } from "@/data/borisWms";
 import { interpolateValues, interpolationQualitaet, type InterpolatedValues } from "@/data/interpolate";
 import { findByPlz, findByPlzPrefix, loadPlzDataset, type PlzEntry } from "@/lib/plz";
 import { formatNumber, formatPercent } from "@/lib/cn";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, MapPin, Info, Search, Loader2, X, Layers, ExternalLink } from "lucide-react";
+import { ArrowUpRight, MapPin, Info, Search, Loader2, X } from "lucide-react";
 import { MarketMap } from "@/components/ui/MarketMap";
 import { useGeocode } from "@/lib/useGeocode";
 import type { GeocodeResult } from "@/lib/geocoding";
@@ -76,12 +75,6 @@ export default function BenchmarkPage() {
   const { results: geoResults, loading: geoLoading } = useGeocode(
     showNominatim && !focus ? query : "",
   );
-
-  // BORIS-WMS-Layer
-  const [borisLayerId, setBorisLayerId] = useState<string>("");
-  const [borisOpacity, setBorisOpacity] = useState<number>(0.55);
-  const borisLayer: BorisWmsLayer | null =
-    BORIS_WMS_LAYERS.find((l) => l.id === borisLayerId) ?? null;
 
   const selectedCase = cases.find((c) => c.id === caseId);
   const userValues = selectedCase ? computeUserValues(selectedCase) : null;
@@ -400,47 +393,6 @@ export default function BenchmarkPage() {
           </div>
         </GlassCard>
 
-        {/* BORIS-WMS-Toggle (nur im Karten-Modus) */}
-        {view === "map" && (
-          <GlassCard className="p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Layers className="size-4 text-[var(--accent-violet)]" />
-              <span className="text-sm font-medium">BORIS Bodenrichtwerte-Overlay</span>
-              <Select
-                value={borisLayerId}
-                onChange={setBorisLayerId}
-                options={[
-                  { value: "", label: "— ausgeschaltet —" },
-                  ...BORIS_WMS_LAYERS.map((l) => ({ value: l.id, label: l.label })),
-                ]}
-                className="min-w-[280px]"
-              />
-              {borisLayer && (
-                <div className="flex items-center gap-2 text-xs text-[var(--fg-secondary)]">
-                  <label>Deckkraft</label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={borisOpacity}
-                    onChange={(e) => setBorisOpacity(Number(e.target.value))}
-                    className="accent-violet-500"
-                  />
-                  <span className="font-mono text-[var(--fg-muted)]">
-                    {Math.round(borisOpacity * 100)}%
-                  </span>
-                </div>
-              )}
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-[var(--fg-muted)]">
-              Amtliche Bodenrichtwerte direkt vom offiziellen Geodienst des Bundeslandes.
-              Derzeit verifiziert: Hamburg (öffentlicher WMS mit CORS). Für andere
-              Bundesländer öffnest du das jeweilige BORIS-Portal direkt — Links unten.
-            </p>
-          </GlassCard>
-        )}
-
         {/* Karten- oder Grid-View */}
         {view === "map" ? (
           <GlassCard className="p-4">
@@ -462,8 +414,6 @@ export default function BenchmarkPage() {
               focus={focus ? { lat: focus.lat, lng: focus.lng } : null}
               casePin={casePin}
               highlightOrt={nearestOrt ?? undefined}
-              borisLayer={borisLayer}
-              borisOpacity={borisOpacity}
             />
           </GlassCard>
         ) : (
@@ -497,39 +447,14 @@ export default function BenchmarkPage() {
           </GlassCard>
         )}
 
-        {/* BORIS-Portal Links */}
-        <GlassCard className="p-5">
-          <h3 className="mb-3 text-xs font-medium uppercase tracking-widest text-[var(--fg-muted)]">
-            Offizielle Bodenrichtwerte-Portale (extern)
-          </h3>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            {Object.entries(BUNDESLAND_PORTAL_LINKS).map(([bl, info]) => (
-              <a
-                key={bl}
-                href={info.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs transition-colors hover:bg-white/[0.05]"
-              >
-                <span className="truncate">
-                  <span className="font-mono text-[var(--fg-muted)]">{bl}</span> ·{" "}
-                  <span>{info.label}</span>
-                </span>
-                <ExternalLink className="size-3 shrink-0 text-[var(--fg-muted)]" />
-              </a>
-            ))}
-          </div>
-        </GlassCard>
-
         <GlassCard className="p-4 text-xs leading-relaxed text-[var(--fg-muted)]">
           <div className="mb-1 font-medium text-[var(--fg-secondary)]">Datenquellen</div>
           PLZ-Koordinaten: geonames.org (9.856 deutsche PLZs, CC BY 4.0).
           Stadt-Mittelwerte: aggregiert aus LBS/Postbank Wohnatlas, Bulwiengesa,
-          JLL/CBRE und Gutachterausschuss-Berichten (2025).
-          Geocoding: OpenStreetMap Nominatim. Bodenrichtwerte-Overlay: amtliche WMS
-          der Bundesländer (CORS-verfügbarkeit variiert).
+          JLL/CBRE und Gutachterausschuss-Berichten (2025). Geocoding: OpenStreetMap Nominatim.
           Die interpolierten Werte sind Schätzungen aus den 4 nächsten Referenzstädten
-          via Inverse-Distance-Weighting — kein Ersatz für lokalen Mietspiegel oder Gutachterausschuss-Bericht.
+          via Inverse-Distance-Weighting — kein Ersatz für lokalen Mietspiegel oder
+          Gutachterausschuss-Bericht.
         </GlassCard>
       </div>
     </div>

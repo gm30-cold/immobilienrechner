@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { MarktDatensatz } from "@/data/markt";
 import type { Objekttyp } from "@/types/case";
 import { benchmarkBruttorendite } from "@/data/markt";
+import type { BorisWmsLayer } from "@/data/borisWms";
 
 // ---------------------------------------------------------------------------
 // Interaktive Deutschland-Karte mit Markt-Daten als Blasen.
@@ -24,6 +25,10 @@ interface Props {
   casePin?: { lat: number; lng: number; label: string } | null;
   /** Highlight eines Ortes nach Name */
   highlightOrt?: string;
+  /** BORIS-WMS-Overlay (null = aus) */
+  borisLayer?: BorisWmsLayer | null;
+  /** Opacity des WMS-Overlays (0–1) */
+  borisOpacity?: number;
 }
 
 const OSM_STYLE: maplibregl.StyleSpecification = {
@@ -84,6 +89,8 @@ export function MarketMap({
   focus,
   casePin,
   highlightOrt,
+  borisLayer = null,
+  borisOpacity = 0.55,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MLMap | null>(null);
@@ -208,6 +215,40 @@ export function MarketMap({
       map.flyTo({ center: [focus.lng, focus.lat], zoom: 10, duration: 900 });
     }
   }, [focus]);
+
+  // BORIS WMS overlay
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const map = mapRef.current;
+    const SOURCE_ID = "boris-wms-src";
+    const LAYER_ID = "boris-wms-lyr";
+
+    // Immer erst clean-up
+    if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+    if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+
+    if (!borisLayer) return;
+
+    const wmsUrl =
+      `${borisLayer.url}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap` +
+      `&FORMAT=image/png&TRANSPARENT=true` +
+      `&LAYERS=${encodeURIComponent(borisLayer.layer)}` +
+      `&CRS=${borisLayer.crs}` +
+      `&WIDTH=256&HEIGHT=256&BBOX={bbox-epsg-3857}`;
+
+    map.addSource(SOURCE_ID, {
+      type: "raster",
+      tiles: [wmsUrl],
+      tileSize: 256,
+      attribution: borisLayer.attribution,
+    });
+    map.addLayer({
+      id: LAYER_ID,
+      type: "raster",
+      source: SOURCE_ID,
+      paint: { "raster-opacity": borisOpacity },
+    });
+  }, [ready, borisLayer, borisOpacity]);
 
   // Case pin
   useEffect(() => {

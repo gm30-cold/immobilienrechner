@@ -20,7 +20,7 @@ export default function Home() {
   const createCase = () => {
     const c = makeDefaultCase(`Case ${cases.length + 1}`);
     addCase(c);
-    router.push(`/cases/${c.id}`);
+    router.push(`/case?id=${c.id}`);
   };
 
   return (
@@ -84,7 +84,7 @@ function CaseCard({ caseItem }: { caseItem: Case }) {
   const monatsmiete = caseItem.stammdaten.einheiten.reduce((s, e) => s + e.kaltmiete, 0);
 
   return (
-    <a href={`/cases/${caseItem.id}`} className="group relative block">
+    <a href={`/case?id=${caseItem.id}`} className="group relative block">
       <GlassCard className="relative h-full overflow-hidden p-5 transition-transform group-hover:-translate-y-1">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_60%_at_100%_0%,rgba(167,139,250,0.08),transparent_60%)]" />
         <div className="relative flex items-start justify-between gap-2">

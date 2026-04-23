@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Bundesland } from "@/types/case";
+import { withBasePath } from "@/lib/basePath";
 
 export interface PlzEntry {
   plz: string;
@@ -30,7 +31,7 @@ export async function loadPlzDataset(): Promise<PlzEntry[]> {
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
-    const res = await fetch("/data/plz.json");
+    const res = await fetch(withBasePath("/data/plz.json"));
     if (!res.ok) throw new Error("PLZ-Daten konnten nicht geladen werden");
     const json = (await res.json()) as PlzFile;
     const entries = json.entries.map(([plz, ort, bundesland, lat, lng]) => ({

@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { useCasesStore } from "@/lib/store";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Tabs, type TabDef } from "@/components/ui/Tabs";
@@ -37,27 +37,37 @@ const tabs: TabDef[] = [
 ];
 
 export default function CasePage() {
-  const params = useParams<{ id: string }>();
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-[var(--fg-muted)]">Lade Case …</div>}>
+      <CasePageInner />
+    </Suspense>
+  );
+}
+
+function CasePageInner() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
   const router = useRouter();
-  const caseItem = useCasesStore((s) => s.cases.find((c) => c.id === params.id));
+  const caseItem = useCasesStore((s) => s.cases.find((c) => c.id === id));
   const [active, setActive] = useState("dashboard");
 
   useEffect(() => {
+    if (!id) {
+      router.replace("/");
+      return;
+    }
     if (!caseItem) {
       const t = setTimeout(() => {
-        // Hydration-tolerant: if still not found, redirect home
-        if (!useCasesStore.getState().cases.find((c) => c.id === params.id)) {
+        if (!useCasesStore.getState().cases.find((c) => c.id === id)) {
           router.replace("/");
         }
       }, 100);
       return () => clearTimeout(t);
     }
-  }, [caseItem, params.id, router]);
+  }, [caseItem, id, router]);
 
   if (!caseItem) {
-    return (
-      <div className="p-8 text-sm text-[var(--fg-muted)]">Lade Case …</div>
-    );
+    return <div className="p-8 text-sm text-[var(--fg-muted)]">Lade Case …</div>;
   }
 
   return (

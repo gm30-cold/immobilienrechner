@@ -1,16 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCasesStore } from "@/lib/store";
 import { makeDefaultCase } from "@/lib/defaultCase";
 import { cn, formatCurrency } from "@/lib/cn";
 import { Building2, Plus, Home, LineChart, Map, Download, Upload } from "lucide-react";
-import { useRef } from "react";
+import { Suspense, useRef } from "react";
 import { toast } from "sonner";
 
 export function Sidebar() {
+  return (
+    <Suspense fallback={<aside className="sticky top-0 h-screen w-64 glass border-r border-[var(--border-subtle)]" />}>
+      <SidebarInner />
+    </Suspense>
+  );
+}
+
+function SidebarInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const activeCaseId = searchParams.get("id");
   const router = useRouter();
   const cases = useCasesStore((s) => s.cases);
   const addCase = useCasesStore((s) => s.addCase);
@@ -20,7 +30,7 @@ export function Sidebar() {
   const createCase = () => {
     const c = makeDefaultCase(`Case ${cases.length + 1}`);
     addCase(c);
-    router.push(`/cases/${c.id}`);
+    router.push(`/case?id=${c.id}`);
   };
 
   const exportAll = () => {
@@ -111,11 +121,11 @@ export function Sidebar() {
         ) : (
           <ul className="flex flex-col gap-1">
             {cases.map((c) => {
-              const active = pathname.startsWith(`/cases/${c.id}`);
+              const active = pathname === "/case" && activeCaseId === c.id;
               return (
                 <li key={c.id}>
                   <Link
-                    href={`/cases/${c.id}`}
+                    href={`/case?id=${c.id}`}
                     className={cn(
                       "group flex flex-col gap-0.5 rounded-lg px-3 py-2 transition-colors",
                       active

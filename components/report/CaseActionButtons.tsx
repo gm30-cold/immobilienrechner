@@ -73,7 +73,7 @@ export function CaseActionButtons({ caseItem }: Props) {
     addCase(copy);
     toast.success("Case dupliziert");
     setMenuOpen(false);
-    router.push(`/cases/${copy.id}`);
+    router.push(`/case?id=${copy.id}`);
   };
 
   const deleteCase = () => {

@@ -18,8 +18,9 @@ describe("IRR", () => {
 });
 
 describe("Exit-Berechnung", () => {
-  it("Spekulationssteuer fällt bei Verkauf <10 Jahre", () => {
+  it("Spekulationssteuer fällt bei Verkauf <10 Jahre mit Gewinn", () => {
     const c = makeDefaultCase();
+    c.kaufkosten.kaufpreis = 300000;
     c.exit.haltedauerJahre = 5;
     c.exit.verkaufspreisModus = "wertsteigerungProzent";
     c.exit.wertsteigerungProzentPA = 3;
@@ -30,6 +31,7 @@ describe("Exit-Berechnung", () => {
 
   it("Keine Spekulationssteuer bei Haltedauer ≥10", () => {
     const c = makeDefaultCase();
+    c.kaufkosten.kaufpreis = 300000;
     c.exit.haltedauerJahre = 12;
     const r = computeCase(c, 30);
     expect(r.exit.spekulationssteuerFaellig).toBe(false);

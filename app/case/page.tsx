@@ -47,9 +47,14 @@ export default function CasePage() {
 function CasePageInner() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const paramTab = searchParams.get("tab");
   const router = useRouter();
   const caseItem = useCasesStore((s) => s.cases.find((c) => c.id === id));
-  const [active, setActive] = useState("dashboard");
+  // Bei leerem Case (kein Kaufpreis eingetragen) automatisch auf Stammdaten starten.
+  const defaultTab =
+    paramTab ??
+    (caseItem && caseItem.kaufkosten.kaufpreis === 0 ? "stammdaten" : "dashboard");
+  const [active, setActive] = useState(defaultTab);
 
   useEffect(() => {
     if (!id) {

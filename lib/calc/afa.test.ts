@@ -28,6 +28,7 @@ describe("berechneAfA", () => {
 
   it("§7b Sonder-AfA addiert 5% in Jahren 1-4", () => {
     const c = makeDefaultCase();
+    c.stammdaten.baujahr = 1995;
     c.kaufkosten.kaufpreis = 400000;
     c.kaufkosten.aufteilung = { grundProzent: 20, gebaeudeProzent: 80 };
     c.steuer.sonderAfA = { aktiv: true, qualifizierenderBetrag: 200000 };
@@ -41,6 +42,7 @@ describe("berechneAfA", () => {
 
   it("Denkmal §7i: 9% Jahre 1-8, 7% Jahre 9-12", () => {
     const c = makeDefaultCase();
+    c.stammdaten.baujahr = 1995;
     c.kaufkosten.kaufpreis = 400000;
     c.steuer.denkmalAfA = { aktiv: true, qualifizierenderBetrag: 100000 };
     const afa = berechneAfA(c);

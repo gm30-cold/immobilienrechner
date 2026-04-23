@@ -20,7 +20,7 @@ export default function Home() {
   const createCase = () => {
     const c = makeDefaultCase(`Case ${cases.length + 1}`);
     addCase(c);
-    router.push(`/case?id=${c.id}`);
+    router.push(`/case?id=${c.id}&tab=stammdaten`);
   };
 
   return (

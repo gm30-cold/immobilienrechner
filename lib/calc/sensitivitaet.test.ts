@@ -15,6 +15,11 @@ describe("berechneSensitivitaet", () => {
 
   it("Sollzins +1pp verschlechtert Cashflow Jahr 1, −1pp verbessert", () => {
     const c = makeDefaultCase();
+    // Nicht-leerer Case damit Sollzins überhaupt einen Effekt haben kann
+    c.kaufkosten.kaufpreis = 300000;
+    c.finanzierung.darlehen[0].betrag = 240000;
+    c.stammdaten.einheiten[0].qm = 75;
+    c.stammdaten.einheiten[0].kaltmiete = 1100;
     const r = berechneSensitivitaet(c, "cashflowMonat");
     const zins = r.zeilen.find((z) => z.variable === "sollzins");
     expect(zins).toBeDefined();

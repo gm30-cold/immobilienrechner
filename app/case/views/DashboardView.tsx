@@ -41,9 +41,15 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
         steuer: showTaxReserve
           ? Math.round(Math.max(0, zeile.steuerEffekt) / 12)
           : 0,
+        erstattung: showTaxReserve
+          ? Math.round(Math.max(0, -zeile.steuerEffekt) / 12)
+          : 0,
       },
     ];
   }, [caseItem, chartJahr, showTaxReserve]);
+
+  const hatErstattung = monthly[0].erstattung > 0;
+  const hatRuecklage = monthly[0].steuer > 0;
 
   const kpi = result.kpi;
   const breakEvenJahr = kpi.breakEvenJahr;
@@ -132,7 +138,7 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
                   onChange={(e) => setShowTaxReserve(e.target.checked)}
                   className="size-3.5 accent-emerald-500"
                 />
-                Steuerrücklage
+                Steuereffekt
               </label>
               <select
                 value={chartJahr}
@@ -163,11 +169,14 @@ export function DashboardView({ caseItem }: { caseItem: Case }) {
                 }}
                 formatter={(v) => formatCurrency(Number(v))}
               />
-              <Bar dataKey="miete" stackId="in" fill="var(--accent-emerald)" radius={[6, 6, 0, 0]} name="Kaltmiete" />
+              <Bar dataKey="miete" stackId="in" fill="var(--accent-emerald)" radius={hatErstattung ? [0, 0, 0, 0] : [6, 6, 0, 0]} name="Kaltmiete" />
+              {showTaxReserve && hatErstattung && (
+                <Bar dataKey="erstattung" stackId="in" fill="#fbbf24" radius={[6, 6, 0, 0]} name="Steuererstattung" />
+              )}
               <Bar dataKey="zins" stackId="out" fill="#e11d48" radius={[0, 0, 0, 0]} name="Zins" />
               <Bar dataKey="tilgung" stackId="out" fill="#a78bfa" radius={[0, 0, 0, 0]} name="Tilgung" />
-              <Bar dataKey="bewirtschaftung" stackId="out" fill="#fb7185" radius={[0, 0, 0, 0]} name="Bewirtschaftung" />
-              {showTaxReserve && (
+              <Bar dataKey="bewirtschaftung" stackId="out" fill="#fb7185" radius={showTaxReserve && hatRuecklage ? [0, 0, 0, 0] : [6, 6, 0, 0]} name="Bewirtschaftung" />
+              {showTaxReserve && hatRuecklage && (
                 <Bar dataKey="steuer" stackId="out" fill="#fbbf24" radius={[6, 6, 0, 0]} name="Steuerrücklage" />
               )}
               <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "var(--fg-secondary)" }} />

@@ -1,17 +1,18 @@
 "use client";
 
-import type { Case, GrenzsteuersatzModus, Veranlagung } from "@/types/case";
+import type { AfAModus, Case, GrenzsteuersatzModus, Veranlagung } from "@/types/case";
 import { useCasesStore } from "@/lib/store";
 import {
   Field,
   CurrencyInput,
+  NumberInput,
   PercentInput,
   Section,
   RadioGroup,
   Checkbox,
 } from "@/components/forms/inputs";
 import { GlassCard } from "@/components/ui/GlassCard";
-import { effektiverGrenzsteuersatz, linearerAfASatz, berechneAfA } from "@/lib/calc";
+import { effektiverGrenzsteuersatz, effektiverAfASatz, linearerAfASatz, berechneAfA } from "@/lib/calc";
 import { schaetzeZvE } from "@/data/tarif";
 import { formatCurrency, formatPercent } from "@/lib/cn";
 
@@ -23,7 +24,9 @@ export function SteuerView({ caseItem }: { caseItem: Case }) {
   const veranlagung = caseItem.steuer.veranlagung;
 
   const grenz = effektiverGrenzsteuersatz(caseItem);
-  const afaSatz = linearerAfASatz(caseItem.stammdaten.baujahr);
+  const afaModus: AfAModus = caseItem.steuer.afaModus ?? "auto";
+  const afaSatzAuto = linearerAfASatz(caseItem.stammdaten.baujahr);
+  const afaSatz = effektiverAfASatz(caseItem);
   const afaResult = berechneAfA(caseItem);
 
   // Vorschau für Schätzungsmodus
@@ -132,15 +135,56 @@ export function SteuerView({ caseItem }: { caseItem: Case }) {
           </div>
         </Section>
 
-        <Section title="AfA — Abschreibung" description="Wird automatisch aus dem Baujahr gewählt.">
+        <Section
+          title="AfA — Abschreibung"
+          description="Automatisch nach Baujahr oder manuell über die Restnutzungsdauer."
+        >
+          <div className="space-y-5">
+            <Field
+              label="AfA-Satz bestimmen"
+              tooltip="Automatisch: gesetzlicher Satz nach Baujahr (§7 Abs. 4 S. 1 EStG). Restnutzungsdauer: höherer Satz = 100 / RND bei gutachterlich nachgewiesener kürzerer Nutzungsdauer (§7 Abs. 4 S. 2 EStG) — braucht ein RND-Gutachten (nach ImmoWertV), Kosten ca. 500–1.500 €, wird vom Finanzamt geprüft."
+            >
+              <RadioGroup<AfAModus>
+                value={afaModus}
+                onChange={(v) => upd((c) => { c.steuer.afaModus = v; })}
+                options={[
+                  { value: "auto", label: "Automatisch nach Baujahr" },
+                  { value: "restnutzungsdauer", label: "Restnutzungsdauer (Gutachten)" },
+                ]}
+              />
+            </Field>
+
+            {afaModus === "restnutzungsdauer" && (
+              <Field
+                label="Restnutzungsdauer"
+                tooltip="Gutachterlich festgestellte wirtschaftliche Restnutzungsdauer des Gebäudes. Üblich bei Altbauten: 25–40 Jahre. Je kürzer, desto höher die jährliche AfA — nach Ablauf ist der Gebäudewert voll abgeschrieben und die AfA endet."
+              >
+                <NumberInput
+                  value={caseItem.steuer.restnutzungsdauerJahre ?? 50}
+                  onChange={(v) => upd((c) => { c.steuer.restnutzungsdauerJahre = v; })}
+                  unit="Jahre"
+                  min={1}
+                  max={100}
+                />
+              </Field>
+            )}
+
           <div className="rounded-lg border border-white/5 bg-white/[0.02] p-4">
             <div className="grid gap-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-secondary)]">
-                  Baujahr {caseItem.stammdaten.baujahr} → linearer AfA-Satz
+                  {afaModus === "restnutzungsdauer"
+                    ? `RND ${caseItem.steuer.restnutzungsdauerJahre ?? 50} Jahre → AfA-Satz`
+                    : `Baujahr ${caseItem.stammdaten.baujahr} → linearer AfA-Satz`}
                 </span>
-                <span className="font-mono font-semibold">{afaSatz.toFixed(1)}%</span>
+                <span className="font-mono font-semibold">{afaSatz.toFixed(2)}%</span>
               </div>
+              {afaModus === "restnutzungsdauer" && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--fg-muted)] text-xs">Zum Vergleich: automatisch nach Baujahr</span>
+                  <span className="font-mono text-xs text-[var(--fg-muted)]">{afaSatzAuto.toFixed(1)}%</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-[var(--fg-muted)] text-xs">Gebäudewert als AfA-Basis</span>
                 <span className="font-mono text-xs text-[var(--fg-muted)]">
@@ -154,6 +198,16 @@ export function SteuerView({ caseItem }: { caseItem: Case }) {
                 </span>
               </div>
             </div>
+          </div>
+
+          {afaModus === "restnutzungsdauer" && (
+            <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3 text-[11px] text-[var(--fg-secondary)]">
+              <span className="font-mono text-amber-200">Hinweis:</span>{" "}
+              Der erhöhte Satz gilt nur mit Restnutzungsdauer-Gutachten (§7 Abs. 4 S. 2 EStG).
+              Das Finanzamt erkennt nicht jedes Gutachten an — Modellierung hier ist keine
+              Zusage. Nach Ablauf der Restnutzungsdauer endet die AfA im Modell automatisch.
+            </div>
+          )}
           </div>
         </Section>
 

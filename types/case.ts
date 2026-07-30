@@ -95,11 +95,16 @@ export interface Bewirtschaftung {
 
 export type GrenzsteuersatzModus = "bescheid" | "schaetzung" | "direkt";
 export type Veranlagung = "einzeln" | "zusammen";
+export type AfAModus = "auto" | "restnutzungsdauer";
 
 export interface SteuerAnnahmen {
   grenzsteuersatzModus: GrenzsteuersatzModus;
   veranlagung: Veranlagung;
   kirchensteuerSatz: 0 | 0.08 | 0.09;
+  // AfA: "auto" = Satz nach Baujahr (§7 Abs. 4 S. 1), "restnutzungsdauer" =
+  // Satz aus gutachterlich nachgewiesener Restnutzungsdauer (§7 Abs. 4 S. 2)
+  afaModus?: AfAModus; // default "auto"
+  restnutzungsdauerJahre?: number; // nur bei 'restnutzungsdauer'
   // Mode: bescheid
   zvE?: number;
   // Mode: schaetzung

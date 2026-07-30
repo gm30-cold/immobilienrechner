@@ -15,6 +15,20 @@ export function linearerAfASatz(baujahr: number): number {
 }
 
 /**
+ * Effektiver AfA-Satz des Cases:
+ *   Modus "restnutzungsdauer" (§7 Abs. 4 Satz 2 EStG): 100 / RND —
+ *   setzt gutachterlich nachgewiesene kürzere Restnutzungsdauer voraus.
+ *   Sonst automatisch nach Baujahr.
+ */
+export function effektiverAfASatz(c: Case): number {
+  const rnd = c.steuer.restnutzungsdauerJahre ?? 0;
+  if (c.steuer.afaModus === "restnutzungsdauer" && rnd > 0) {
+    return 100 / rnd;
+  }
+  return linearerAfASatz(c.stammdaten.baujahr);
+}
+
+/**
  * Sonder-AfA §7b EStG (Mietwohnungsneubau): 5% p.a. über 4 Jahre
  * ZUSÄTZLICH zur linearen AfA. Im Modell bereits qualifizierender Betrag gegeben.
  */
@@ -36,8 +50,18 @@ function denkmal7iProJahr(qualBetrag: number, jahr: number): number {
 
 export function berechneAfA(c: Case): AfAErgebnis {
   const { gebaeudewert } = berechneWertaufteilung(c.kaufkosten);
-  const satz = linearerAfASatz(c.stammdaten.baujahr);
+  const satz = effektiverAfASatz(c);
   const linear = gebaeudewert * (satz / 100);
+
+  // AfA endet, wenn der Gebäudewert voll abgeschrieben ist — bei kurzer
+  // Restnutzungsdauer passiert das innerhalb des Betrachtungszeitraums.
+  const volleJahre = satz > 0 ? Math.floor(100 / satz) : 0;
+  const restImLetztenJahr = gebaeudewert - volleJahre * linear;
+  const linearProJahr = (jahr: number): number => {
+    if (jahr <= volleJahre) return linear;
+    if (jahr === volleJahre + 1) return Math.max(0, restImLetztenJahr);
+    return 0;
+  };
 
   const sonderBetrag = c.steuer.sonderAfA?.aktiv
     ? c.steuer.sonderAfA.qualifizierenderBetrag
@@ -54,6 +78,6 @@ export function berechneAfA(c: Case): AfAErgebnis {
     sonder7b,
     denkmal7i,
     proJahr: (jahr: number) =>
-      linear + sonder7bProJahr(sonderBetrag, jahr) + denkmal7iProJahr(denkmalBetrag, jahr),
+      linearProJahr(jahr) + sonder7bProJahr(sonderBetrag, jahr) + denkmal7iProJahr(denkmalBetrag, jahr),
   };
 }

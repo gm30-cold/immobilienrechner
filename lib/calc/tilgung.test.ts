@@ -52,6 +52,57 @@ describe("Anschlussfinanzierung", () => {
     // Nach Umschaltung sollte Zinsanteil sprunghaft steigen
     expect(monat61.zins).toBeGreaterThan(monat60.zins);
   });
+
+  it("Default 'rateBeibehalten': Annuität bleibt über den Anschluss konstant", () => {
+    const withAnschluss: Darlehen = {
+      ...dk,
+      sollzinsbindungJahre: 5,
+      anschlussZinsAnnahmeProzent: 6.0,
+    };
+    const zeilen = berechneTilgungsplanDarlehen(withAnschluss);
+    // Rate vor und nach Bindungsende identisch — nur der Zins/Tilgungs-Mix ändert sich
+    expect(zeilen[60].annuitaet).toBeCloseTo(zeilen[59].annuitaet, 2);
+    expect(zeilen[60].tilgung).toBeLessThan(zeilen[59].tilgung);
+  });
+
+  it("'tilgungNeu': Annuität wird auf Restschuld neu berechnet", () => {
+    const withAnschluss: Darlehen = {
+      ...dk,
+      sollzinsbindungJahre: 5,
+      anschlussZinsAnnahmeProzent: 6.0,
+      anschlussModus: "tilgungNeu",
+    };
+    const zeilen = berechneTilgungsplanDarlehen(withAnschluss);
+    const restschuldEnde5 = zeilen[59].restschuld;
+    // Neue Rate = Restschuld × (6% + 2%) / 12
+    expect(zeilen[60].annuitaet).toBeCloseTo((restschuldEnde5 * 0.08) / 12, 2);
+  });
+
+  it("nach langer Bindung mit moderatem Zinssprung: 'rateBeibehalten' entschuldet schneller", () => {
+    // Nach 10 J. ist die Tilgungskomponente der alten Rate deutlich über 2% gewachsen —
+    // 'tilgungNeu' würde die Rate senken und die Laufzeit strecken.
+    const basis: Darlehen = {
+      ...dk, // 10 J. Bindung, 4% Zins
+      anschlussZinsAnnahmeProzent: 5.0,
+    };
+    const behalten = berechneTilgungsplanDarlehen(basis);
+    const neu = berechneTilgungsplanDarlehen({ ...basis, anschlussModus: "tilgungNeu" });
+    const restNach20J = (z: typeof behalten) => z.find((x) => x.monat === 240)?.restschuld ?? 0;
+    expect(restNach20J(behalten)).toBeLessThan(restNach20J(neu));
+  });
+
+  it("nach kurzer Bindung mit starkem Zinssprung kann 'tilgungNeu' die Rate erhöhen", () => {
+    // 5 J. Bindung, 4% → 6%: neue Rate = Restschuld × 8% > alte Rate (18k) —
+    // die Richtung des Sprungs hängt von der Konstellation ab.
+    const basis: Darlehen = {
+      ...dk,
+      sollzinsbindungJahre: 5,
+      anschlussZinsAnnahmeProzent: 6.0,
+    };
+    const behalten = berechneTilgungsplanDarlehen(basis);
+    const neu = berechneTilgungsplanDarlehen({ ...basis, anschlussModus: "tilgungNeu" });
+    expect(neu[60].annuitaet).toBeGreaterThan(behalten[60].annuitaet);
+  });
 });
 
 describe("Aggregation Multi-Darlehen", () => {

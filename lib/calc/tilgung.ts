@@ -3,8 +3,10 @@ import type { TilgungsZeile, TilgungsplanErgebnis } from "./types";
 
 /**
  * Monatsgenauer Annuitätenplan für EIN Darlehen.
- * Nach Ablauf der Sollzinsbindung wird — falls anschlussZinsAnnahmeProzent gesetzt —
- * mit gleichem Anfangs-Tilgungs-% neu auf die Restschuld umgerechnet.
+ * Nach Ablauf der Sollzinsbindung — falls anschlussZinsAnnahmeProzent gesetzt —
+ * greift der anschlussModus:
+ *   "rateBeibehalten" (Default): bisherige Annuität läuft zum neuen Zins weiter.
+ *   "tilgungNeu": Annuität = Restschuld × (Anschlusszins + Anfangstilgung).
  * Lauf bis Restschuld 0 oder maximal 40 Jahre (Sicherheits-Cutoff).
  */
 export function berechneTilgungsplanDarlehen(
@@ -25,9 +27,12 @@ export function berechneTilgungsplanDarlehen(
     // Anschlussfinanzierung prüfen (nur einmal, am Ende der Bindung)
     if (m === bindungMonate + 1 && d.anschlussZinsAnnahmeProzent != null) {
       zinsP = d.anschlussZinsAnnahmeProzent;
-      // Annuität auf gleiche Anfangs-Tilgung neu bezogen auf aktuelle Restschuld
-      monatsRate =
-        (restschuld * ((zinsP + d.tilgungAnfaenglichProzent) / 100)) / 12;
+      if (d.anschlussModus === "tilgungNeu") {
+        // Annuität auf gleiche Anfangs-Tilgung neu bezogen auf aktuelle Restschuld
+        monatsRate =
+          (restschuld * ((zinsP + d.tilgungAnfaenglichProzent) / 100)) / 12;
+      }
+      // sonst: Rate beibehalten — nur der Zins/Tilgungs-Mix ändert sich
     }
 
     const zinsMonat = restschuld * (zinsP / 100 / 12);

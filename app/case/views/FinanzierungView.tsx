@@ -1,6 +1,6 @@
 "use client";
 
-import type { Case, Darlehen } from "@/types/case";
+import type { AnschlussModus, Case, Darlehen } from "@/types/case";
 import { useCasesStore } from "@/lib/store";
 import {
   Field,
@@ -10,6 +10,7 @@ import {
   NumberInput,
   Section,
   Checkbox,
+  RadioGroup,
 } from "@/components/forms/inputs";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { berechneGesamtinvestition, berechneTilgungsplan } from "@/lib/calc";
@@ -148,7 +149,7 @@ export function FinanzierungView({ caseItem }: { caseItem: Case }) {
                         })
                       }
                       label="Anschlussfinanzierung simulieren"
-                      tooltip="Nach Ablauf der Zinsbindung wird die Restschuld mit einem angenommenen neuen Zinssatz bei gleicher Anfangstilgung weiter getilgt. Stresstest-Empfehlung: +1 bis +2 Prozentpunkte."
+                      tooltip="Nach Ablauf der Zinsbindung wird die Restschuld mit einem angenommenen neuen Zinssatz weiter getilgt. Stresstest-Empfehlung: +1 bis +2 Prozentpunkte."
                     />
                     {hasAnschluss && (
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -156,6 +157,19 @@ export function FinanzierungView({ caseItem }: { caseItem: Case }) {
                           <PercentInput
                             value={d.anschlussZinsAnnahmeProzent ?? 4.5}
                             onChange={(v) => updateDarlehen(d.id, { anschlussZinsAnnahmeProzent: v })}
+                          />
+                        </Field>
+                        <Field
+                          label="Rate bei Anschluss"
+                          tooltip="Rate beibehalten (Bank-Standard): bisherige Annuität läuft zum neuen Zins weiter — kein Cashflow-Sprung; bei deutlich höherem Anschlusszins sinkt dafür der Tilgungsanteil. Tilgung neu: Rate = Restschuld × (Anschlusszins + Anfangstilgung) — startet die Tilgung wieder bei der Anfangs-Quote; je nach Konstellation niedrigere oder höhere Rate als bisher."
+                        >
+                          <RadioGroup<AnschlussModus>
+                            value={d.anschlussModus ?? "rateBeibehalten"}
+                            onChange={(v) => updateDarlehen(d.id, { anschlussModus: v })}
+                            options={[
+                              { value: "rateBeibehalten", label: "Rate beibehalten" },
+                              { value: "tilgungNeu", label: "Tilgung neu" },
+                            ]}
                           />
                         </Field>
                       </div>

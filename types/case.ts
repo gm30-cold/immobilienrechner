@@ -56,6 +56,11 @@ export interface Kaufkosten {
   };
 }
 
+// Verhalten der Annuität bei Anschlussfinanzierung:
+// "rateBeibehalten" = bisherige Rate läuft weiter (Bank-Standard, Default)
+// "tilgungNeu" = Rate wird neu berechnet: Restschuld × (Anschlusszins + Anfangstilgung)
+export type AnschlussModus = "rateBeibehalten" | "tilgungNeu";
+
 export interface Darlehen {
   id: string;
   bezeichnung: string; // "Bank-Annuität" | "KfW 261" | "Privatdarlehen"
@@ -65,6 +70,7 @@ export interface Darlehen {
   sollzinsbindungJahre: number;
   tilgungsfreieJahre?: number;
   anschlussZinsAnnahmeProzent?: number; // Szenario nach Bindung
+  anschlussModus?: AnschlussModus; // default "rateBeibehalten"
 }
 
 export interface Finanzierung {
